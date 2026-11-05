@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f2ea">
+  <title>Amigo Secreto</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <span class="eyebrow">UM PRESENTE, UMA SURPRESA</span>
+      <h1>Amigo <span>Secreto</span></h1>
+      <p>Cadastre-se para participar. Depois do sorteio, use a senha que chegará no seu e-mail para descobrir quem você tirou.</p>
+      <div class="status-pill"><span class="status-dot"></span><span id="event-status">Carregando sorteio...</span></div>
+    </header>
+
+    <div class="content-grid">
+      <section class="card" aria-labelledby="register-title">
+        <div class="card-heading">
+          <span class="step">01</span>
+          <div>
+            <h2 id="register-title">Entre no sorteio</h2>
+            <p>Cadastre seu nome e e-mail.</p>
+          </div>
+        </div>
+        <form id="register-form">
+          <label for="name">Seu nome</label>
+          <input id="name" name="name" type="text" placeholder="Ex.: Ana Silva" minlength="2" maxlength="80" autocomplete="name" required>
+          <label for="register-email">Seu e-mail</label>
+          <input id="register-email" name="email" type="email" placeholder="voce@email.com" maxlength="254" autocomplete="email" required>
+          <button class="button button-dark" type="submit">Quero participar <span aria-hidden="true">→</span></button>
+          <p class="form-message" id="register-message" role="status"></p>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="login-title">
+        <div class="card-heading">
+          <span class="step">02</span>
+          <div>
+            <h2 id="login-title">Descubra seu amigo</h2>
+            <p>O resultado só aparece depois do sorteio.</p>
+          </div>
+        </div>
+        <form id="login-form">
+          <label for="login-email">E-mail cadastrado</label>
+          <input id="login-email" name="email" type="email" placeholder="voce@email.com" autocomplete="email" required>
+          <label for="password">Senha recebida por e-mail</label>
+          <input id="password" name="password" type="password" placeholder="Sua senha secreta" autocomplete="current-password" required>
+          <button class="button button-green" type="submit">Ver meu resultado <span aria-hidden="true">→</span></button>
+          <p class="form-message" id="login-message" role="status"></p>
+        </form>
+        <div class="result" id="result" hidden aria-live="polite">
+          <span>Você tirou</span>
+          <strong id="recipient-name"></strong>
+          <button class="text-button" id="logout-button" type="button">Sair do resultado</button>
+        </div>
+      </section>
+    </div>
+
+    <details class="organizer">
+      <summary>Área do organizador</summary>
+      <div class="organizer-content">
+        <p>Use a chave de organização configurada no servidor. Os participantes e e-mails ficam visíveis somente nesta área.</p>
+        <label for="admin-key">Chave do organizador</label>
+        <input id="admin-key" type="password" autocomplete="off" placeholder="Chave definida em ADMIN_KEY">
+        <button class="button button-outline" id="load-participants" type="button">Ver participantes</button>
+        <ul id="participant-list" class="participant-list"></ul>
+        <button class="button button-green draw-button" id="draw-button" type="button">Fazer o sorteio e enviar senhas</button>
+        <p class="form-message" id="admin-message" role="status"></p>
+      </div>
+    </details>
+
+    <footer>Feito para reunir a turma e espalhar boas surpresas.</footer>
+  </main>
+</body>
+</html>

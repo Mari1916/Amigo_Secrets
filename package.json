@@ -1,0 +1,13 @@
+{
+  "name": "amigo-secreto",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Site simples para organizar um sorteio de amigo secreto",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "nodemailer": "^10.3.1"
+  }
+}
