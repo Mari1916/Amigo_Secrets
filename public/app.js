@@ -1,7 +1,5 @@
 const registerForm = document.querySelector("#register-form");
 const loginForm = document.querySelector("#login-form");
-const adminMessage = document.querySelector("#admin-message");
-const participantList = document.querySelector("#participant-list");
 const result = document.querySelector("#result");
 let drawComplete = false;
 
@@ -18,23 +16,29 @@ async function request(url, options = {}) {
 function setMessage(element, message, isError = false) {
   element.textContent = message;
   element.classList.toggle("error", isError);
+  element.classList.remove("waiting");
 }
 
-function adminHeaders() {
-  return { "X-Admin-Key": document.querySelector("#admin-key").value };
+function updateStatus(status) {
+  drawComplete = status.drawComplete;
+  document.querySelector("#event-status").textContent = status.drawComplete
+    ? "Sorteio realizado — entre para ver seu resultado"
+    : `${status.participantCount} de ${status.totalParticipants} pessoas cadastradas`;
+  const waitingNotice = document.querySelector("#waiting-notice");
+  waitingNotice.hidden = status.drawComplete;
+  document.querySelector("#waiting-notice-text").textContent = status.drawComplete
+    ? ""
+    : status.participantCount === 0
+      ? "Estamos aguardando as cinco participantes criarem seu acesso. Assim que todas entrarem, o sorteio acontece automaticamente."
+      : `Estamos aguardando as outras participantes: ${status.participantCount} de ${status.totalParticipants} já criaram seu acesso. O sorteio acontece automaticamente quando todas entrarem.`;
+  registerForm.querySelectorAll("select, input, button").forEach((element) => {
+    element.disabled = status.drawComplete;
+  });
 }
 
 async function refreshStatus() {
   const status = await request("/api/status");
-  const label = document.querySelector("#event-status");
-  drawComplete = status.drawComplete;
-  label.textContent = status.drawComplete
-    ? "Sorteio realizado — confira seu e-mail"
-    : `${status.participantCount} ${status.participantCount === 1 ? "pessoa cadastrada" : "pessoas cadastradas"} • inscrições abertas`;
-  if (status.drawComplete) {
-    registerForm.querySelectorAll("input, button").forEach((element) => { element.disabled = true; });
-  }
-  document.querySelector("#draw-button").disabled = status.drawComplete;
+  updateStatus(status);
 }
 
 registerForm.addEventListener("submit", async (event) => {
@@ -43,13 +47,13 @@ registerForm.addEventListener("submit", async (event) => {
   button.disabled = true;
   try {
     const formData = new FormData(registerForm);
-    const data = await request("/api/participants", {
+    const data = await request("/api/register", {
       method: "POST",
-      body: JSON.stringify({ name: formData.get("name"), email: formData.get("email") }),
+      body: JSON.stringify({ name: formData.get("name"), password: formData.get("password") }),
     });
     setMessage(document.querySelector("#register-message"), data.message);
     registerForm.reset();
-    await refreshStatus();
+    updateStatus(data);
   } catch (error) {
     setMessage(document.querySelector("#register-message"), error.message, true);
   } finally {
@@ -66,14 +70,18 @@ loginForm.addEventListener("submit", async (event) => {
     const formData = new FormData(loginForm);
     await request("/api/login", {
       method: "POST",
-      body: JSON.stringify({ email: formData.get("email"), password: formData.get("password") }),
+      body: JSON.stringify({ name: formData.get("name"), password: formData.get("password") }),
     });
     const data = await request("/api/draw");
     document.querySelector("#recipient-name").textContent = data.recipientName;
     result.hidden = false;
     loginForm.hidden = true;
   } catch (error) {
-    setMessage(document.querySelector("#login-message"), error.message, true);
+    const waitingForParticipants = error.message.includes("O sorteio ainda não foi realizado");
+    setMessage(document.querySelector("#login-message"), waitingForParticipants
+      ? "Seu acesso está pronto! Estamos aguardando as outras participantes para realizar o sorteio. Volte aqui assim que todas se cadastrarem."
+      : error.message, !waitingForParticipants);
+    document.querySelector("#login-message").classList.toggle("waiting", waitingForParticipants);
   } finally {
     button.disabled = false;
   }
@@ -84,66 +92,6 @@ document.querySelector("#logout-button").addEventListener("click", async () => {
   result.hidden = true;
   loginForm.hidden = false;
   loginForm.reset();
-});
-
-document.querySelector("#load-participants").addEventListener("click", async () => {
-  setMessage(adminMessage, "");
-  try {
-    const data = await request("/api/participants", { headers: adminHeaders() });
-    participantList.replaceChildren();
-    for (const participant of data.participants) {
-      const item = document.createElement("li");
-      item.append(document.createTextNode(`${participant.name} — ${participant.email}`));
-      if (participant.emailSent) {
-        item.append(document.createTextNode(" • senha enviada"));
-      } else if (document.querySelector("#event-status").textContent.startsWith("Sorteio realizado")) {
-        const resendButton = document.createElement("button");
-        resendButton.type = "button";
-        resendButton.dataset.email = participant.email;
-        resendButton.textContent = "Reenviar senha";
-        item.append(resendButton);
-      }
-      participantList.append(item);
-    }
-    if (!data.participants.length) setMessage(adminMessage, "Ainda não há participantes.");
-  } catch (error) {
-    setMessage(adminMessage, error.message, true);
-  }
-});
-
-document.querySelector("#draw-button").addEventListener("click", async (event) => {
-  const button = event.currentTarget;
-  if (!window.confirm("Depois de sortear, não será possível alterar os participantes. Confirmar?")) return;
-  button.disabled = true;
-  setMessage(adminMessage, "Sorteando e enviando as senhas...");
-  try {
-    const data = await request("/api/draw", { method: "POST", headers: adminHeaders(), body: "{}" });
-    setMessage(adminMessage, data.message);
-    await refreshStatus();
-  } catch (error) {
-    setMessage(adminMessage, error.message, true);
-    if (error.message.includes("não foi possível enviar")) await refreshStatus();
-  } finally {
-    button.disabled = drawComplete;
-  }
-});
-
-participantList.addEventListener("click", async (event) => {
-  const button = event.target.closest("button[data-email]");
-  if (!button) return;
-  button.disabled = true;
-  try {
-    const data = await request("/api/resend", {
-      method: "POST",
-      headers: adminHeaders(),
-      body: JSON.stringify({ email: button.dataset.email }),
-    });
-    setMessage(adminMessage, data.message);
-    button.replaceWith(document.createTextNode(" • senha enviada"));
-  } catch (error) {
-    setMessage(adminMessage, error.message, true);
-    button.disabled = false;
-  }
 });
 
 refreshStatus().catch((error) => {

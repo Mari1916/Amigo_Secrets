@@ -1,34 +1,30 @@
 # Amigo Secreto
 
-Site simples para cadastrar participantes, sortear sem que alguém tire a si mesmo e enviar uma senha individual por e-mail. O resultado de cada pessoa só é mostrado depois de entrar com o e-mail cadastrado e a senha recebida.
-
-## Requisitos
-
-- Node.js 18 ou superior
-- Uma conta de e-mail com acesso SMTP (use senha de aplicativo quando o provedor exigir)
+Site para cinco participantes. Cada pessoa escolhe seu nome e cria uma senha que só ela conhece. Quando as cinco contas forem criadas, o sorteio acontece automaticamente e cada pessoa vê apenas o próprio resultado ao entrar.
 
 ## Rodar localmente
 
-1. Instale as dependências com `npm install`.
-2. Copie `.env.example` para `.env` (`Copy-Item .env.example .env` no PowerShell) e preencha as configurações:
-   - `ADMIN_KEY`: chave do organizador com pelo menos 16 caracteres.
-   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER` e `SMTP_PASS`: dados SMTP do provedor.
-   - `MAIL_FROM`: nome e endereço que aparecerão como remetente.
-   - `SITE_URL`: endereço público do site, para incluí-lo no e-mail; deixe vazio para não incluir o link.
-3. Inicie o site com `npm start`.
+1. Instale o Node.js 18 ou superior.
+2. Execute `npm install`.
+3. Execute `npm start`.
 4. Abra `http://localhost:3000`.
-5. Os participantes cadastram nome e e-mail. Em **Área do organizador**, informe `ADMIN_KEY`, confira a lista e faça o sorteio.
 
-As senhas são aleatórias e ficam armazenadas apenas como hashes. Se algum envio falhar, abra novamente a área do organizador, carregue os participantes e use **Reenviar senha** para os e-mails pendentes. Cada reenvio emite uma nova senha para aquele participante.
+Cada participante deve criar seu acesso uma única vez. Senhas têm pelo menos 8 caracteres e são armazenadas como hashes. Não há recuperação de senha; se alguém esquecer, será necessário reiniciar os dados antes do sorteio.
 
-Os dados do sorteio ficam em `data/store.json`; proteja esse arquivo e faça cópias de segurança. A sessão de acesso expira após 12 horas. Para uso público, hospede o site com HTTPS e mantenha `.env` e a pasta `data` fora do acesso público.
+Os nomes permitidos estão definidos em `server.js`: MariMari, Jujubas, Isinha, Aninha e Nick. Compartilhe o link apenas com essas pessoas. Cada nome pode ser registrado uma vez; quem registrar primeiro fica com aquele nome.
 
-## Publicar na Railway
+## Publicar no Render
 
-1. Envie o projeto para um repositório no GitHub. Não envie `.env`, `node_modules` nem a pasta `data`; eles já estão no `.gitignore`.
-2. Na Railway, crie um projeto e implante o repositório do GitHub. O comando de inicialização é `npm start`.
-3. Adicione um **Volume** ao serviço e monte-o em `/data`. Nas variáveis do serviço, configure `DATA_DIR=/data` para guardar os cadastros e o resultado no volume persistente.
-4. Configure as variáveis `ADMIN_KEY`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` e `MAIL_FROM` com seus valores reais. Defina também `NODE_ENV=production`. Não publique essas credenciais no GitHub.
-5. Gere um domínio público nas configurações de rede do serviço e configure `SITE_URL` com esse endereço `https://...`. Depois, faça um novo deploy.
+1. Envie as alterações deste projeto para o GitHub.
+2. Entre em [render.com](https://render.com/) usando o GitHub e autorize acesso ao repositório.
+3. No painel, clique em **New +** → **Blueprint** e selecione o repositório `Amigo_Secrets`.
+4. O Render lerá `render.yaml`, criará o serviço e fará o deploy. O arquivo configura `npm install`, `npm start` e um disco persistente em `/var/data`.
+5. Quando o deploy terminar, abra o endereço `.onrender.com` exibido no painel e compartilhe somente com as cinco participantes.
 
-Compartilhe o endereço `https://...` com as participantes. O site de cadastro é público; apenas a área de organização exige `ADMIN_KEY`, e cada resultado exige a senha recebida por e-mail.
+O disco persistente do Render exige um plano pago. Ele é necessário para manter os cadastros e o resultado após reinícios e novos deploys. Não remova nem recrie o disco depois que as participantes se cadastrarem.
+
+## Privacidade
+
+O site não mostra uma lista de resultados: cada sessão autenticada recebe somente o resultado do próprio nome, e não existe painel de organizador. Ainda assim, quem administra a hospedagem e o código pode, tecnicamente, acessar os dados armazenados no servidor. As senhas escolhidas pelas participantes não ficam em texto aberto.
+
+O site não envia e-mail, SMS ou WhatsApp. Depois de criar a conta, cada participante volta ao site e entra com o próprio nome e senha para ver o resultado.

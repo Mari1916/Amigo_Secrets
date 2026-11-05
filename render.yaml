@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: amigo-secreto
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/status
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: amigo-secreto-data
+      mountPath: /var/data
+      sizeGB: 1
