@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#f5f2ea">
   <title>Amigo Secreto</title>
   <link rel="stylesheet" href="/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
@@ -13,7 +14,7 @@
     <header class="hero">
       <span class="eyebrow">UM PRESENTE, UMA SURPRESA</span>
       <h1>Amigo <span>Secreto</span></h1>
-      <p>Cada participante cria sua própria senha. Quando as cinco entrarem, o sorteio acontece automaticamente e cada uma vê apenas o próprio resultado.</p>
+      <p>Cadastre seu nome e e-mail. O site gera uma senha e envia para você; quando as cinco se cadastrarem, cada uma poderá descobrir quem tirou.</p>
       <div class="status-pill"><span class="status-dot"></span><span id="event-status">Carregando sorteio...</span></div>
       <div class="waiting-notice" id="waiting-notice" role="status" hidden>
         <span class="waiting-icon" aria-hidden="true">✦</span>
@@ -26,8 +27,8 @@
         <div class="card-heading">
           <span class="step">01</span>
           <div>
-            <h2 id="register-title">Crie seu acesso</h2>
-            <p>Escolha seu nome e crie uma senha só sua.</p>
+            <h2 id="register-title">Cadastre-se</h2>
+            <p>Vamos enviar sua senha para o e-mail informado.</p>
           </div>
         </div>
         <form id="register-form">
@@ -40,10 +41,11 @@
             <option>Aninha</option>
             <option>Nick</option>
           </select>
-          <label for="register-password">Crie sua senha</label>
-          <input id="register-password" name="password" type="password" placeholder="Pelo menos 8 caracteres" minlength="8" maxlength="100" autocomplete="new-password" required>
-          <button class="button button-dark" type="submit">Criar meu acesso <span aria-hidden="true">→</span></button>
+          <label for="register-email">Seu e-mail</label>
+          <input id="register-email" name="email" type="email" placeholder="voce@email.com" maxlength="254" autocomplete="email" required>
+          <button class="button button-dark" type="submit" disabled>Participar e receber senha <span aria-hidden="true">→</span></button>
           <p class="form-message" id="register-message" role="status"></p>
+          <button class="button button-outline" id="retry-register-email" type="button" hidden>Tentar enviar minha senha novamente</button>
         </form>
       </section>
 
@@ -52,24 +54,27 @@
           <span class="step">02</span>
           <div>
             <h2 id="login-title">Descubra seu amigo</h2>
-            <p>Entre com o nome e a senha que você criou.</p>
+            <p>Use o e-mail cadastrado e a senha recebida.</p>
           </div>
         </div>
         <form id="login-form">
-          <label for="login-name">Seu nome</label>
-          <select id="login-name" name="name" required>
-            <option value="">Selecione seu nome</option>
-            <option>MariMari</option>
-            <option>Jujubas</option>
-            <option>Isinha</option>
-            <option>Aninha</option>
-            <option>Nick</option>
-          </select>
-          <label for="login-password">Sua senha</label>
-          <input id="login-password" name="password" type="password" placeholder="A senha que você criou" autocomplete="current-password" required>
+          <label for="login-email">Seu e-mail</label>
+          <input id="login-email" name="email" type="email" placeholder="voce@email.com" autocomplete="email" required>
+          <label for="login-password">Senha enviada por e-mail</label>
+          <input id="login-password" name="password" type="password" placeholder="A senha que você recebeu" autocomplete="current-password" required>
           <button class="button button-green" type="submit">Ver meu resultado <span aria-hidden="true">→</span></button>
           <p class="form-message" id="login-message" role="status"></p>
         </form>
+        <details class="resend-password">
+          <summary>Não recebeu ou esqueceu a senha?</summary>
+          <form id="resend-form">
+            <label for="resend-email">E-mail usado no cadastro</label>
+            <input id="resend-email" name="email" type="email" placeholder="voce@email.com" autocomplete="email" required>
+            <button class="button button-outline" type="submit">Enviar uma nova senha</button>
+            <p class="form-message" id="resend-message" role="status"></p>
+            <button class="button button-outline" id="retry-resend-email" type="button" hidden>Tentar enviar novamente</button>
+          </form>
+        </details>
         <div class="result" id="result" hidden aria-live="polite">
           <span>Você tirou</span>
           <strong id="recipient-name"></strong>
@@ -78,7 +83,7 @@
       </section>
     </div>
 
-    <footer>Não compartilhe sua senha: nem a organizadora consegue recuperá-la. Compartilhe o link apenas com as cinco participantes.</footer>
+    <footer>Não compartilhe sua senha. Compartilhe o link apenas com as cinco participantes.</footer>
   </main>
 </body>
 </html>
