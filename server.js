@@ -8,16 +8,23 @@ const PORT = Number(process.env.PORT || 3000);
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const DATA_FILE = path.join(DATA_DIR, "store.json");
 const PUBLIC_DIR = path.join(__dirname, "public");
+const ADMIN_KEY = process.env.ADMIN_KEY || "";
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const PARTICIPANT_NAMES = ["MariMari", "Jujubas", "Isinha", "Aninha", "Nick"];
+const PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
 const sessions = new Map();
 const loginAttempts = new Map();
 const DUMMY_PASSWORD_HASH = hashPassword(crypto.randomBytes(32).toString("hex"));
 
 function createEmptyStore() {
   return {
-    version: 3,
-    participants: PARTICIPANT_NAMES.map((name) => ({ name, email: null, password: null, emailSent: false })),
+    version: 4,
+    participants: PARTICIPANT_NAMES.map((name) => ({
+      name,
+      password: null,
+      passwordPlain: null,
+      registered: false,
+    })),
     draw: null,
   };
 }
@@ -31,14 +38,10 @@ function readStore() {
     throw error;
   }
 
-  if (store.version === 3) return store;
+  if (store.version === 4) return store;
   if (store.draw) {
-    throw new Error("Os dados contêm um sorteio antigo que não pode ser migrado automaticamente. Preserve o backup e use um armazenamento vazio para este novo sorteio.");
+    throw new Error("Os dados contêm um sorteio antigo. Preserve o backup antes de iniciar um novo sorteio.");
   }
-  if (store.version === 2 && store.participants?.some((participant) => participant.password)) {
-    throw new Error("Há contas cadastradas no armazenamento antigo. Preserve o backup e use um armazenamento vazio para este novo sorteio.");
-  }
-
   return createEmptyStore();
 }
 
@@ -85,24 +88,33 @@ function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
   return { salt, hash };
 }
 
-function normalizeEmail(email) {
-  return String(email || "").trim().toLowerCase();
-}
-
-function isValidEmail(email) {
-  return email.length <= 254
-    && /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i.test(email);
-}
-
-function emailJsConfigured() {
-  return ["EMAILJS_SERVICE_ID", "EMAILJS_TEMPLATE_ID", "EMAILJS_PUBLIC_KEY"]
-    .every((key) => Boolean(process.env[key]?.trim()));
+function generatePassword() {
+  let password = "";
+  const maxValidByte = 256 - (256 % PASSWORD_ALPHABET.length);
+  while (password.length < 16) {
+    const bytes = crypto.randomBytes(16);
+    for (const byte of bytes) {
+      if (byte < maxValidByte) {
+        password += PASSWORD_ALPHABET[byte % PASSWORD_ALPHABET.length];
+        if (password.length === 16) break;
+      }
+    }
+  }
+  return password;
 }
 
 function verifyPassword(password, saved) {
   const actual = crypto.scryptSync(password, saved.salt, 64);
   const expected = Buffer.from(saved.hash, "hex");
   return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+}
+
+function isAdmin(request) {
+  const supplied = Buffer.from(String(request.headers["x-admin-key"] || ""));
+  const expected = Buffer.from(ADMIN_KEY);
+  return expected.length >= 16
+    && supplied.length === expected.length
+    && crypto.timingSafeEqual(supplied, expected);
 }
 
 function getSession(request) {
@@ -140,9 +152,17 @@ function drawAssignments(participants) {
 
   return participants.map((participant, index) => ({
     name: participant.name,
-    email: participant.email,
     recipientName: shuffled[index].name,
   }));
+}
+
+function getStatus(store) {
+  return {
+    participantCount: store.participants.filter((participant) => participant.registered).length,
+    totalParticipants: PARTICIPANT_NAMES.length,
+    drawComplete: Boolean(store.draw),
+    credentialsGenerated: store.participants.every((participant) => Boolean(participant.password)),
+  };
 }
 
 async function route(request, response) {
@@ -150,125 +170,71 @@ async function route(request, response) {
   const store = readStore();
 
   if (request.method === "GET" && url.pathname === "/api/status") {
-    const registeredCount = store.participants.filter((participant) => participant.password).length;
-    return jsonResponse(response, 200, {
-      participantCount: registeredCount,
-      totalParticipants: PARTICIPANT_NAMES.length,
-      drawComplete: Boolean(store.draw),
-      emailConfigured: emailJsConfigured(),
-    });
+    return jsonResponse(response, 200, getStatus(store));
   }
 
-  if (request.method === "GET" && url.pathname === "/api/email-config") {
-    if (!emailJsConfigured()) {
-      return jsonResponse(response, 503, { error: "O envio de e-mail ainda não está configurado." });
+  if (request.method === "POST" && url.pathname === "/api/organizer/credentials") {
+    if (ADMIN_KEY.length < 16) {
+      return jsonResponse(response, 503, { error: "A chave da organizadora ainda não foi configurada no servidor." });
     }
-    return jsonResponse(response, 200, {
-      serviceId: process.env.EMAILJS_SERVICE_ID,
-      templateId: process.env.EMAILJS_TEMPLATE_ID,
-      publicKey: process.env.EMAILJS_PUBLIC_KEY,
-    });
-  }
-
-  if (request.method === "POST" && url.pathname === "/api/register") {
-    const body = await readBody(request);
-    const name = String(body.name || "");
-    const email = normalizeEmail(body.email);
-    const password = String(body.password || "");
-    const key = `register:${request.socket.remoteAddress || "unknown"}`;
-    if (!checkLoginLimit(key)) {
+    const organizerKey = `organizer:${request.socket.remoteAddress || "unknown"}`;
+    if (!checkLoginLimit(organizerKey)) {
       return jsonResponse(response, 429, { error: "Muitas tentativas. Aguarde um minuto e tente novamente." });
     }
-    if (!emailJsConfigured()) {
-      return jsonResponse(response, 503, { error: "O envio de e-mail ainda não está configurado. Avise a organizadora." });
-    }
-    if (!PARTICIPANT_NAMES.includes(name)) {
-      return jsonResponse(response, 400, { error: "Selecione um nome válido." });
-    }
-    if (!isValidEmail(email)) {
-      return jsonResponse(response, 400, { error: "Informe um e-mail válido." });
-    }
-    if (password.length < 16 || password.length > 100) {
-      return jsonResponse(response, 400, { error: "A senha gerada não é válida. Tente novamente." });
+    if (!isAdmin(request)) return jsonResponse(response, 403, { error: "Chave da organizadora inválida." });
+    if (store.draw) return jsonResponse(response, 409, { error: "O sorteio já foi realizado." });
+
+    if (!store.participants.every((participant) => participant.password)) {
+      if (store.participants.some((participant) => participant.registered)) {
+        return jsonResponse(response, 409, { error: "Algumas pessoas já entraram. Não é possível trocar as senhas depois do início." });
+      }
+      for (const participant of store.participants) {
+        const password = generatePassword();
+        participant.password = hashPassword(password);
+        participant.passwordPlain = password;
+      }
+      saveStore(store);
     }
 
-    const latestStore = readStore();
-    if (latestStore.draw) return jsonResponse(response, 409, { error: "O sorteio já foi realizado." });
-    const participant = latestStore.participants.find((entry) => entry.name === name);
-    if (participant.password) {
-      return jsonResponse(response, 409, { error: "Esse nome já foi cadastrado. Entre com o e-mail e a senha enviados ou use “Reenviar senha”." });
-    }
-    if (latestStore.participants.some((entry) => entry.email === email)) {
-      return jsonResponse(response, 409, { error: "Esse e-mail já está cadastrado para outra participante." });
-    }
-
-    participant.email = email;
-    participant.password = hashPassword(password);
-    const registeredCount = latestStore.participants.filter((entry) => entry.email && entry.password).length;
-    if (registeredCount === PARTICIPANT_NAMES.length) {
-      latestStore.draw = {
-        createdAt: new Date().toISOString(),
-        assignments: drawAssignments(latestStore.participants),
-      };
-    }
-    saveStore(latestStore);
-
-    return jsonResponse(response, 201, {
-      message: "Cadastro confirmado.",
-      participantCount: registeredCount,
-      totalParticipants: PARTICIPANT_NAMES.length,
-      drawComplete: Boolean(latestStore.draw),
-      emailConfigured: true,
+    return jsonResponse(response, 200, {
+      credentials: store.participants.map(({ name, passwordPlain }) => ({ name, password: passwordPlain })),
+      ...getStatus(store),
     });
-  }
-
-  if (request.method === "POST" && url.pathname === "/api/resend-password") {
-    const body = await readBody(request);
-    const email = normalizeEmail(body.email);
-    const key = `resend:${request.socket.remoteAddress || "unknown"}`;
-    if (!checkLoginLimit(key)) {
-      return jsonResponse(response, 429, { error: "Muitas tentativas. Aguarde um minuto e tente novamente." });
-    }
-    if (!emailJsConfigured()) {
-      return jsonResponse(response, 503, { error: "O envio de e-mail ainda não está configurado. Avise a organizadora." });
-    }
-    if (!isValidEmail(email)) {
-      return jsonResponse(response, 400, { error: "Informe um e-mail válido." });
-    }
-    const password = String(body.password || "");
-    if (password.length < 16 || password.length > 100) {
-      return jsonResponse(response, 400, { error: "A senha gerada não é válida. Tente novamente." });
-    }
-
-    const latestStore = readStore();
-    const participant = latestStore.participants.find((entry) => entry.email === email && entry.password);
-    if (!participant) {
-      return jsonResponse(response, 404, { error: "Não encontramos um cadastro com esse e-mail. Confira o endereço ou crie seu acesso." });
-    }
-
-    participant.password = hashPassword(password);
-    saveStore(latestStore);
-    return jsonResponse(response, 200, { message: "Senha atualizada.", name: participant.name });
   }
 
   if (request.method === "POST" && url.pathname === "/api/login") {
     const body = await readBody(request);
-    const email = normalizeEmail(body.email);
+    const name = String(body.name || "");
     const password = String(body.password || "");
-    const key = `login:${request.socket.remoteAddress || "unknown"}`;
+    const key = request.socket.remoteAddress || "unknown";
     if (!checkLoginLimit(key)) {
       return jsonResponse(response, 429, { error: "Muitas tentativas. Aguarde um minuto e tente novamente." });
     }
-    const participant = store.participants.find((entry) => entry.email === email);
+    const participant = store.participants.find((entry) => entry.name === name);
     const savedPassword = participant?.password || DUMMY_PASSWORD_HASH;
     const passwordMatches = password.length <= 100 && verifyPassword(password, savedPassword);
     if (!participant?.password || !passwordMatches) {
-      return jsonResponse(response, 401, { error: "E-mail ou senha incorretos." });
+      return jsonResponse(response, 401, { error: "Nome ou senha incorretos. Confira o acesso recebido da organizadora." });
     }
+
+    participant.registered = true;
+    if (store.participants.every((entry) => entry.registered) && !store.draw) {
+      store.draw = {
+        createdAt: new Date().toISOString(),
+        assignments: drawAssignments(store.participants),
+      };
+    }
+    saveStore(store);
+
     const token = crypto.randomBytes(32).toString("hex");
-    sessions.set(token, { email, expiresAt: Date.now() + SESSION_TTL_MS });
+    sessions.set(token, { name, expiresAt: Date.now() + SESSION_TTL_MS });
     const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-    return jsonResponse(response, 200, { message: "Acesso autorizado!" }, {
+    return jsonResponse(response, 200, {
+      message: store.draw
+        ? "As cinco participantes já entraram. O sorteio foi realizado!"
+        : "Acesso confirmado! O resultado aparece quando as cinco participantes entrarem.",
+      ...getStatus(store),
+    }, {
       "Set-Cookie": `amigo_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_TTL_MS / 1000}${secure}`,
     });
   }
@@ -276,9 +242,9 @@ async function route(request, response) {
   if (request.method === "GET" && url.pathname === "/api/draw") {
     const session = getSession(request);
     if (!session) return jsonResponse(response, 401, { error: "Entre com seu nome e senha para ver o resultado." });
-    const assignment = store.draw?.assignments.find((entry) => entry.email === session.email);
+    const assignment = store.draw?.assignments.find((entry) => entry.name === session.name);
     if (!assignment) {
-      return jsonResponse(response, 409, { error: "O sorteio ainda não foi realizado. Aguarde as cinco participantes se cadastrarem." });
+      return jsonResponse(response, 409, { error: "Estamos aguardando as outras participantes. O sorteio acontece quando as cinco entrarem." });
     }
     return jsonResponse(response, 200, { recipientName: assignment.recipientName });
   }
@@ -306,7 +272,7 @@ async function route(request, response) {
       response.writeHead(200, {
         "Content-Type": `${contentType}; charset=utf-8`,
         "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy": "default-src 'self'; style-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://api.emailjs.com; form-action 'self'; base-uri 'self'; frame-ancestors 'none'",
+        "Content-Security-Policy": "default-src 'self'; style-src 'self'; script-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'",
       });
       return response.end(content);
     } catch (error) {

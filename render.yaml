@@ -11,11 +11,7 @@ services:
         value: production
       - key: DATA_DIR
         value: /var/data
-      - key: EMAILJS_SERVICE_ID
-        sync: false
-      - key: EMAILJS_TEMPLATE_ID
-        sync: false
-      - key: EMAILJS_PUBLIC_KEY
+      - key: ADMIN_KEY
         sync: false
     disk:
       name: amigo-secreto-data

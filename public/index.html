@@ -6,7 +6,6 @@
   <meta name="theme-color" content="#f5f2ea">
   <title>Amigo Secreto</title>
   <link rel="stylesheet" href="/styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js" defer></script>
   <script src="/app.js" defer></script>
 </head>
 <body>
@@ -14,7 +13,7 @@
     <header class="hero">
       <span class="eyebrow">UM PRESENTE, UMA SURPRESA</span>
       <h1>Amigo <span>Secreto</span></h1>
-      <p>Cadastre seu nome e e-mail. O site gera uma senha e envia para você; quando as cinco se cadastrarem, cada uma poderá descobrir quem tirou.</p>
+      <p>A organizadora vai entregar seu nome e senha. Quando as cinco participantes entrarem, o sorteio acontece e cada uma vê apenas o próprio resultado.</p>
       <div class="status-pill"><span class="status-dot"></span><span id="event-status">Carregando sorteio...</span></div>
       <div class="waiting-notice" id="waiting-notice" role="status" hidden>
         <span class="waiting-icon" aria-hidden="true">✦</span>
@@ -23,17 +22,17 @@
     </header>
 
     <div class="content-grid">
-      <section class="card" aria-labelledby="register-title">
+      <section class="card" aria-labelledby="login-title">
         <div class="card-heading">
           <span class="step">01</span>
           <div>
-            <h2 id="register-title">Cadastre-se</h2>
-            <p>Vamos enviar sua senha para o e-mail informado.</p>
+            <h2 id="login-title">Descubra seu amigo</h2>
+            <p>Use o nome e a senha recebidos da organizadora.</p>
           </div>
         </div>
-        <form id="register-form">
-          <label for="name">Seu nome</label>
-          <select id="name" name="name" required>
+        <form id="login-form">
+          <label for="login-name">Seu nome</label>
+          <select id="login-name" name="name" required>
             <option value="">Selecione seu nome</option>
             <option>MariMari</option>
             <option>Jujubas</option>
@@ -41,49 +40,40 @@
             <option>Aninha</option>
             <option>Nick</option>
           </select>
-          <label for="register-email">Seu e-mail</label>
-          <input id="register-email" name="email" type="email" placeholder="voce@email.com" maxlength="254" autocomplete="email" required>
-          <button class="button button-dark" type="submit" disabled>Participar e receber senha <span aria-hidden="true">→</span></button>
-          <p class="form-message" id="register-message" role="status"></p>
-          <button class="button button-outline" id="retry-register-email" type="button" hidden>Tentar enviar minha senha novamente</button>
-        </form>
-      </section>
-
-      <section class="card" aria-labelledby="login-title">
-        <div class="card-heading">
-          <span class="step">02</span>
-          <div>
-            <h2 id="login-title">Descubra seu amigo</h2>
-            <p>Use o e-mail cadastrado e a senha recebida.</p>
-          </div>
-        </div>
-        <form id="login-form">
-          <label for="login-email">Seu e-mail</label>
-          <input id="login-email" name="email" type="email" placeholder="voce@email.com" autocomplete="email" required>
-          <label for="login-password">Senha enviada por e-mail</label>
-          <input id="login-password" name="password" type="password" placeholder="A senha que você recebeu" autocomplete="current-password" required>
-          <button class="button button-green" type="submit">Ver meu resultado <span aria-hidden="true">→</span></button>
+          <label for="login-password">Sua senha</label>
+          <input id="login-password" name="password" type="password" placeholder="Senha recebida da organizadora" autocomplete="current-password" required>
+          <button class="button button-green" type="submit">Confirmar presença <span aria-hidden="true">→</span></button>
           <p class="form-message" id="login-message" role="status"></p>
         </form>
-        <details class="resend-password">
-          <summary>Não recebeu ou esqueceu a senha?</summary>
-          <form id="resend-form">
-            <label for="resend-email">E-mail usado no cadastro</label>
-            <input id="resend-email" name="email" type="email" placeholder="voce@email.com" autocomplete="email" required>
-            <button class="button button-outline" type="submit">Enviar uma nova senha</button>
-            <p class="form-message" id="resend-message" role="status"></p>
-            <button class="button button-outline" id="retry-resend-email" type="button" hidden>Tentar enviar novamente</button>
-          </form>
-        </details>
         <div class="result" id="result" hidden aria-live="polite">
           <span>Você tirou</span>
           <strong id="recipient-name"></strong>
           <button class="text-button" id="logout-button" type="button">Sair do resultado</button>
         </div>
       </section>
+
+      <section class="card organizer" aria-labelledby="organizer-title">
+        <div class="card-heading">
+          <span class="step">02</span>
+          <div>
+            <h2 id="organizer-title">Área da organizadora</h2>
+            <p>Gere e copie as senhas para entregar a cada participante.</p>
+          </div>
+        </div>
+        <form id="organizer-form">
+          <label for="admin-key">Chave da organizadora</label>
+          <input id="admin-key" type="password" autocomplete="current-password" placeholder="Chave configurada no Render" required>
+          <button class="button button-outline" id="load-credentials" type="submit">Ver ou gerar senhas</button>
+          <p class="form-message" id="organizer-message" role="status"></p>
+        </form>
+        <div id="credentials-panel" hidden>
+          <p class="organizer-note">Copie cada senha e envie em particular para a pessoa correspondente. Estas senhas também ficam guardadas no servidor.</p>
+          <ul id="credential-list" class="credential-list"></ul>
+        </div>
+      </section>
     </div>
 
-    <footer>Não compartilhe sua senha. Compartilhe o link apenas com as cinco participantes.</footer>
+    <footer>A organizadora entrega as senhas em particular. Não compartilhe sua senha com as outras participantes.</footer>
   </main>
 </body>
 </html>

@@ -63,9 +63,13 @@ input:focus, select:focus { border-color: #80a28b; box-shadow: 0 0 0 3px rgba(72
 .result span { display: block; color: var(--muted); font-size: .77rem; }
 .result strong { display: block; margin: 5px 0 9px; color: var(--green-dark); font: 700 1.65rem Georgia, serif; }
 .text-button { padding: 4px; border: 0; background: none; color: var(--muted); cursor: pointer; font-size: .75rem; text-decoration: underline; }
-.resend-password { margin-top: 16px; }
-.resend-password summary { color: var(--green); cursor: pointer; font-size: .8rem; }
-.resend-password form { margin-top: 14px; }
+.organizer-note { margin: 14px 0 8px; color: var(--muted); font-size: .8rem; line-height: 1.55; }
+.credential-list { margin: 0; padding: 0; list-style: none; }
+.credential-list li { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.credential-identity { font-size: .82rem; font-weight: 600; }
+.credential-list code { padding: 6px 8px; border-radius: 6px; background: #f3f1eb; font-size: .78rem; }
+.copy-button { padding: 6px 9px; border: 1px solid #cdd8ca; border-radius: 6px; background: #fff; color: var(--green-dark); cursor: pointer; font-size: .73rem; }
+.copy-button:hover { background: #edf2e9; }
 footer { margin-top: 27px; color: #96978d; text-align: center; font-size: .75rem; }
 
 @media (max-width: 680px) {
